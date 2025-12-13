@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Canal Creative Venue Booking</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Playfair+Display:wght@400;600;700&family=Poppins:wght@300;400;500;600&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Poppins', sans-serif; background-color: #F8F3E3; }
+    #root { min-height: 100vh; }
+    
+    /* Mobile calendar visibility */
+    @media (max-width: 768px) {
+      .desktop-calendar { display: none !important; }
+      .mobile-calendar { display: block !important; }
+    }
+    @media (min-width: 769px) {
+      .desktop-calendar { display: block !important; }
+      .mobile-calendar { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState } = React;
+
+    const VenueBookingSystem = () => {
+      const [step, setStep] = useState(1);
+      const [bookingId, setBookingId] = useState('');
+      const [formData, setFormData] = useState({
+        venue: '', date: '', startTime: '', endTime: '', name: '', email: '', 
+        phone: '', organization: '', eventType: '', attendees: '', agreed: false, signature: ''
+      });
+      const [errors, setErrors] = useState({});
+
+      const generateBookingId = () => {
+        const d = new Date();
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const r = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+        return `VR-${y}${m}${day}-${r}`;
+      };
+
+      const venues = [
+        { id: 'living-room', name: "Canal Fulton's Living Room", capacity: '100 people', rate: '$100/hour or $300/3 hours', amenities: ['Tables & Chairs', 'Projector Screen', 'Handicap Accessible'] },
+        { id: 'common-ground', name: 'Common Ground', capacity: '80 people', rate: '$50/hour or $150/3 hours', amenities: ['Tables & Chairs', 'Smart TV', 'Non-Cooking Kitchen'] }
+      ];
+
+      const handleInputChange = (field, value) => {
+        setFormData(prev => ({ ...prev, [field]: value }));
+        if (errors[field]) setErrors(prev => ({ ...prev, [field]: '' }));
+      };
+
+      const validateStep = (s) => {
+        const e = {};
+        if (s === 1) {
+          if (!formData.venue) e.venue = 'Please select a venue';
+          if (!formData.date) e.date = 'Please select a date';
+          if (!formData.startTime) e.startTime = 'Please select start time';
+          if (!formData.endTime) e.endTime = 'Please select end time';
+          if (formData.startTime && formData.endTime && formData.startTime >= formData.endTime) e.endTime = 'End time must be after start time';
+        }
+        if (s === 2) {
+          if (!formData.name) e.name = 'Name is required';
+          if (!formData.email) e.email = 'Email is required';
+          if (!formData.phone) e.phone = 'Phone is required';
+          if (!formData.eventType) e.eventType = 'Event type is required';
+          if (!formData.attendees) e.attendees = 'Expected attendees is required';
+        }
+        if (s === 3) {
+          if (!formData.agreed) e.agreed = 'You must agree to the terms';
+          if (!formData.signature) e.signature = 'Signature is required';
+        }
+        setErrors(e);
+        return Object.keys(e).length === 0;
+      };
+
+      const handleSubmit = async () => {
+        if (!validateStep(3)) return;
+        const newBookingId = generateBookingId();
+        setBookingId(newBookingId);
+        const v = venues.find(x => x.id === formData.venue);
+        
+        const data = {
+          bookingId: newBookingId, venue: v?.name, venueId: formData.venue,
+          date: formData.date, startTime: formData.startTime, endTime: formData.endTime,
+          eventTitle: `RESERVED - ${formData.eventType}`,
+          name: formData.name, email: formData.email, phone: formData.phone,
+          organization: formData.organization || 'N/A', eventType: formData.eventType,
+          attendees: formData.attendees, signature: formData.signature,
+          submittedAt: new Date().toISOString(), status: 'PENDING PAYMENT'
+        };
+
+        try {
+          const url = 'https://hooks.zapier.com/hooks/catch/YOUR_WEBHOOK_ID/';
+          await fetch(url, { method: 'POST', body: JSON.stringify(data) });
+          setStep(4);
+        } catch (err) {
+          alert('Booking submitted! Update Zapier webhook URL to enable calendar integration.');
+          setStep(4);
+        }
+      };
+
+      const redirectToZeffy = () => {
+        const url = formData.venue === 'living-room' 
+          ? 'https://www.zeffy.com/en-US/ticketing/living-room-rental-upper-level'
+          : 'https://www.zeffy.com/en-US/ticketing/common-ground-rental-lower-level';
+        window.open(url, '_blank');
+        alert(`IMPORTANT: Enter this Booking ID in Zeffy:\n\n${bookingId}`);
+      };
+
+      const s = {
+        container: { minHeight: '100vh', backgroundColor: '#F8F3E3', padding: '2rem 1rem' },
+        card: { backgroundColor: 'white', borderRadius: '0.5rem', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', padding: '2rem', border: '2px solid #476548' },
+        input: { width: '100%', padding: '0.5rem 1rem', border: '2px solid #476548', borderRadius: '0.5rem', fontFamily: 'Poppins' },
+        btn: { padding: '0.5rem 1.5rem', border: 'none', borderRadius: '0.5rem', fontFamily: 'Poppins', fontWeight: 600, cursor: 'pointer' }
+      };
+
+      return (
+        <div style={s.container}>
+          <div style={{ maxWidth: '64rem', margin: '0 auto' }}>
+            <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+              <h1 style={{ fontFamily: 'Bebas Neue', fontSize: '3rem', color: '#434341', letterSpacing: '0.05em' }}>CANAL CREATIVE VENUE BOOKING</h1>
+              <p style={{ color: '#476548', fontSize: '1.125rem' }}>Reserve your space in just a few steps</p>
+            </div>
+
+            <div style={{ ...s.card, padding: '1.5rem', marginBottom: '1.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                {['Venue & Date', 'Contact Info', 'Agreement', 'Payment'].map((l, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+                    <div style={{ width: '2.5rem', height: '2.5rem', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, backgroundColor: step > i + 1 ? '#476548' : step === i + 1 ? '#434341' : '#e5e7eb', color: step >= i + 1 ? 'white' : '#434341' }}>
+                      {step > i + 1 ? '✓' : i + 1}
+                    </div>
+                    {i < 3 && <div style={{ flex: 1, height: '2px', margin: '0 0.5rem', backgroundColor: step > i + 1 ? '#476548' : '#e5e7eb' }} />}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div style={s.card}>
+              {step === 1 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                  <h2 style={{ fontFamily: 'Playfair Display', fontSize: '1.875rem', fontWeight: 700, color: '#434341' }}>Select Venue & Date</h2>
+                  
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#434341', marginBottom: '0.5rem' }}>Select Venue</label>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem' }}>
+                      {venues.map(v => (
+                        <div key={v.id} onClick={() => handleInputChange('venue', v.id)} style={{ padding: '1rem', border: formData.venue === v.id ? '3px solid #476548' : '2px solid #476548', borderRadius: '0.5rem', cursor: 'pointer', background: formData.venue === v.id ? '#F8F3E3' : 'white' }}>
+                          <h3 style={{ fontFamily: 'Playfair Display', fontWeight: 700, fontSize: '1.125rem', color: '#434341' }}>{v.name}</h3>
+                          <p style={{ fontSize: '0.875rem', color: '#476548', margin: '0.5rem 0' }}>Capacity: {v.capacity}</p>
+                          <p style={{ fontSize: '0.875rem', fontWeight: 600, color: '#434341', margin: '0.5rem 0' }}>{v.rate}</p>
+                          {v.amenities.map((a, i) => <p key={i} style={{ fontSize: '0.75rem', color: '#434341', marginTop: '0.25rem' }}>• {a}</p>)}
+                        </div>
+                      ))}
+                    </div>
+                    {errors.venue && <p style={{ color: '#dc2626', fontSize: '0.875rem', marginTop: '0.25rem' }}>{errors.venue}</p>}
+                  </div>
+
+                  {formData.venue && (
+                    <div style={{ backgroundColor: '#F8F3E3', border: '2px solid #476548', borderRadius: '0.5rem', padding: '1rem' }}>
+                      <h3 style={{ fontFamily: 'Playfair Display', fontWeight: 700, fontSize: '1.125rem', marginBottom: '0.75rem', color: '#434341' }}>Check Availability First</h3>
+                      <p style={{ fontSize: '0.875rem', color: '#434341', marginBottom: '1rem' }}>View the {venues.find(v => v.id === formData.venue)?.name} calendar to see booked times.</p>
+                      
+                      {/* Desktop: Show embedded calendar */}
+                      <div className="desktop-calendar" style={{ position: 'relative', paddingBottom: '75%', height: 0, overflow: 'hidden', borderRadius: '0.5rem', border: '2px solid #476548' }}>
+                        <iframe src={formData.venue === 'common-ground' ? "https://calendar.google.com/calendar/embed?src=c_11c551249af6a709dbdb55b2ed5b461c5bdbcfd631c9c5cf0ab0faa98b8ac653%40group.calendar.google.com&ctz=America%2FNew_York&mode=WEEK" : "https://calendar.google.com/calendar/embed?src=c_8fae769329e9e76dc47a6cafe9a32b6cc40b220e274c9c9ee97b8e11b9b24702%40group.calendar.google.com&ctz=America%2FNew_York&mode=WEEK"} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 0 }} frameBorder="0" />
+                      </div>
+                      
+                      {/* Mobile: Show button to open full calendar */}
+                      <div className="mobile-calendar" style={{ display: 'none' }}>
+                        <button onClick={() => window.open(formData.venue === 'common-ground' ? "https://calendar.google.com/calendar/embed?src=c_11c551249af6a709dbdb55b2ed5b461c5bdbcfd631c9c5cf0ab0faa98b8ac653%40group.calendar.google.com&ctz=America%2FNew_York&mode=WEEK" : "https://calendar.google.com/calendar/embed?src=c_8fae769329e9e76dc47a6cafe9a32b6cc40b220e274c9c9ee97b8e11b9b24702%40group.calendar.google.com&ctz=America%2FNew_York&mode=WEEK", '_blank')} style={{ width: '100%', padding: '1rem 1.5rem', backgroundColor: '#476548', color: 'white', border: 'none', borderRadius: '0.5rem', fontSize: '1rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'Poppins' }}>
+                          📅 View Full Calendar (Opens in New Tab)
+                        </button>
+                        <p style={{ fontSize: '0.75rem', color: '#434341', marginTop: '0.75rem', textAlign: 'center' }}>Tap to view availability in full-screen calendar</p>
+                      </div>
+                      
+                      <p style={{ fontSize: '0.75rem', color: '#476548', marginTop: '0.75rem', fontStyle: 'italic' }}>💡 Tip: "PENDING PAYMENT" events are not yet confirmed.</p>
+                    </div>
+                  )}
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#434341', marginBottom: '0.5rem' }}>Event Date *</label>
+                    <input type="date" value={formData.date} onChange={(e) => handleInputChange('date', e.target.value)} min={new Date().toISOString().split('T')[0]} style={s.input} />
+                    {errors.date && <p style={{ color: '#dc2626', fontSize: '0.875rem', marginTop: '0.25rem' }}>{errors.date}</p>}
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#434341', marginBottom: '0.5rem' }}>Start Time *</label>
+                      <input type="time" value={formData.startTime} onChange={(e) => handleInputChange('startTime', e.target.value)} style={s.input} />
+                      {errors.startTime && <p style={{ color: '#dc2626', fontSize: '0.875rem', marginTop: '0.25rem' }}>{errors.startTime}</p>}
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#434341', marginBottom: '0.5rem' }}>End Time *</label>
+                      <input type="time" value={formData.endTime} onChange={(e) => handleInputChange('endTime', e.target.value)} style={s.input} />
+                      {errors.endTime && <p style={{ color: '#dc2626', fontSize: '0.875rem', marginTop: '0.25rem' }}>{errors.endTime}</p>}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {step === 2 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                  <h2 style={{ fontFamily: 'Playfair Display', fontSize: '1.875rem', fontWeight: 700, color: '#434341' }}>Contact Information</h2>
+                  
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#434341', marginBottom: '0.5rem' }}>Full Name *</label>
+                      <input type="text" value={formData.name} onChange={(e) => handleInputChange('name', e.target.value)} style={s.input} placeholder="John Doe" />
+                      {errors.name && <p style={{ color: '#dc2626', fontSize: '0.875rem', marginTop: '0.25rem' }}>{errors.name}</p>}
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#434341', marginBottom: '0.5rem' }}>Email Address *</label>
+                      <input type="email" value={formData.email} onChange={(e) => handleInputChange('email', e.target.value)} style={s.input} placeholder="john@example.com" />
+                      {errors.email && <p style={{ color: '#dc2626', fontSize: '0.875rem', marginTop: '0.25rem' }}>{errors.email}</p>}
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#434341', marginBottom: '0.5rem' }}>Phone Number *</label>
+                      <input type="tel" value={formData.phone} onChange={(e) => handleInputChange('phone', e.target.value)} style={s.input} placeholder="(555) 123-4567" />
+                      {errors.phone && <p style={{ color: '#dc2626', fontSize: '0.875rem', marginTop: '0.25rem' }}>{errors.phone}</p>}
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#434341', marginBottom: '0.5rem' }}>Organization (Optional)</label>
+                      <input type="text" value={formData.organization} onChange={(e) => handleInputChange('organization', e.target.value)} style={s.input} placeholder="Your Organization" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#434341', marginBottom: '0.5rem' }}>Event Type *</label>
+                    <select value={formData.eventType} onChange={(e) => handleInputChange('eventType', e.target.value)} style={s.input}>
+                      <option value="">Select event type</option>
+                      <option value="meeting">Meeting</option>
+                      <option value="workshop">Workshop/Training</option>
+                      <option value="party">Party/Celebration</option>
+                      <option value="fundraiser">Fundraiser</option>
+                      <option value="conference">Conference</option>
+                      <option value="other">Other</option>
+                    </select>
+                    {errors.eventType && <p style={{ color: '#dc2626', fontSize: '0.875rem', marginTop: '0.25rem' }}>{errors.eventType}</p>}
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#434341', marginBottom: '0.5rem' }}>Expected Attendees *</label>
+                    <input type="number" value={formData.attendees} onChange={(e) => handleInputChange('attendees', e.target.value)} style={s.input} placeholder="50" min="1" />
+                    {errors.attendees && <p style={{ color: '#dc2626', fontSize: '0.875rem', marginTop: '0.25rem' }}>{errors.attendees}</p>}
+                  </div>
+                </div>
+              )}
+
+              {step === 3 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                  <h2 style={{ fontFamily: 'Playfair Display', fontSize: '1.875rem', fontWeight: 700, color: '#434341' }}>Rental Agreement</h2>
+                  
+                  <div style={{ backgroundColor: '#F8F3E3', border: '2px solid #476548', borderRadius: '0.5rem', padding: '1.5rem', maxHeight: '24rem', overflowY: 'auto' }}>
+                    <pre style={{ whiteSpace: 'pre-wrap', fontSize: '0.875rem', color: '#434341', fontFamily: 'Poppins' }}>
+{`FACILITY RENTAL AGREEMENT
+
+Date: ${new Date().toLocaleDateString()}
+
+This Rental Agreement is made between Canal Creative, located at 311 High Street NE, Canal Fulton, Ohio 44614 ("Canal Creative"), and ${formData.name} ("Renter").
+
+Both parties agree to the following terms:
+
+1. PURPOSE AND USE
+Canal Creative grants the Renter permission to use the following space:
+
+Venue: ${venues.find(v => v.id === formData.venue)?.name || formData.venue}
+Event Name: ${formData.eventType}
+Event Date: ${formData.date}
+Event Time: ${formData.startTime} to ${formData.endTime}
+Expected Attendees: ${formData.attendees}
+
+2. RENTAL FEE AND PAYMENT
+The total rental fee is calculated based on the selected venue and duration.
+Payment must be made in full at time of booking through our secure payment processor.
+
+3. ALCOHOL POLICY
+Canal Creative welcomes responsible celebration. You may bring alcohol for private events if it complies with all state and local laws.
+• You are fully responsible for ensuring no one under 21 is served.
+• Canal Creative does not provide or serve alcohol.
+• You agree to take reasonable care to maintain a safe, respectful environment.
+• You agree to hold Canal Creative harmless for any incidents or damages related to alcohol consumption.
+
+4. FACILITY CONDITION
+You agree to accept the space as-is and return it in the same condition.
+If any damage occurs, you are responsible for repair or replacement costs.
+You agree to remove all personal items, decorations, and trash at the end of your rental period.
+
+5. USE OF SPACE
+• You agree to use the space responsibly and in a way that does not interfere with other activities in the building or cause extra expense for Canal Creative.
+• You may not transfer or share this rental with another person or organization without written permission from Canal Creative.
+• No open flames are permitted.
+• Maximum capacity must not be exceeded at any time.
+• All local noise ordinances and building regulations must be observed.
+
+6. INDEMNIFICATION AND LIABILITY
+You agree to take full responsibility for your event and to protect and hold harmless Canal Creative, its staff, volunteers, and agents from any claims, losses, damages, injuries, or expenses resulting from your event, including those caused by your guests, vendors, or contractors. This protection remains in effect even after the agreement ends.
+
+Canal Creative is not liable for any personal injury, property damage, or loss that occurs during your rental period.
+
+7. CANCELLATIONS AND REFUNDS
+• 30+ days before event: Full refund.
+• 16–29 days before event: 50% of the rental fee is due; 50% refunded.
+• 15 days or fewer: No refund; full fee applies.
+
+All cancellations must be made in writing to info@canalcreativeoh.com.
+
+8. TERMINATION BY CANAL CREATIVE
+Canal Creative may cancel this agreement immediately if:
+• Payment is not received when due, or
+• The Renter breaks any part of this agreement, or
+• The Renter engages in illegal activities or creates unsafe conditions.
+
+If this happens, Canal Creative may remove the Renter and guests from the facility and recover any damages or unpaid costs.
+
+9. VENDOR REQUIREMENTS
+Any vendors, caterers, or contractors hired by the Renter must comply with all Canal Creative policies and applicable laws. Renter is responsible for coordinating all vendor activities.
+
+10. GOVERNING LAW
+This agreement is governed by the laws of the State of Ohio, and any disputes will be handled in Stark County, Ohio courts.
+
+11. ENTIRE AGREEMENT
+This agreement constitutes the entire understanding between Canal Creative and the Renter. Any modifications must be made in writing and signed by both parties.
+
+RENTER'S ACKNOWLEDGMENT:
+By signing below, I acknowledge that I am at least 18 years of age and have the authority to enter into this agreement. I have read, understood, and agree to abide by all terms and conditions of this rental agreement.
+
+Contact Information:
+Name: ${formData.name}
+Email: ${formData.email}
+Phone: ${formData.phone}
+${formData.organization ? `Organization: ${formData.organization}` : ''}
+
+Digital Signature: _________________________
+Date: ${new Date().toLocaleDateString()}`}
+                    </pre>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#434341', marginBottom: '0.5rem' }}>Digital Signature *</label>
+                    <input type="text" value={formData.signature} onChange={(e) => handleInputChange('signature', e.target.value)} style={{ ...s.input, fontSize: '1.5rem', fontFamily: 'Playfair Display' }} placeholder="Your Full Name" />
+                    {errors.signature && <p style={{ color: '#dc2626', fontSize: '0.875rem', marginTop: '0.25rem' }}>{errors.signature}</p>}
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
+                    <input type="checkbox" checked={formData.agreed} onChange={(e) => handleInputChange('agreed', e.target.checked)} style={{ marginTop: '0.25rem', width: '1.25rem', height: '1.25rem', cursor: 'pointer' }} />
+                    <label style={{ fontSize: '0.875rem', color: '#434341' }}>I agree to the terms and conditions outlined in this rental agreement. *</label>
+                  </div>
+                  {errors.agreed && <p style={{ color: '#dc2626', fontSize: '0.875rem', marginTop: '0.25rem' }}>{errors.agreed}</p>}
+                </div>
+              )}
+
+              {step === 4 && (
+                <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                  <div style={{ width: '5rem', height: '5rem', backgroundColor: '#476548', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto', color: 'white', fontSize: '2rem' }}>✓</div>
+                  
+                  <h2 style={{ fontFamily: 'Playfair Display', fontSize: '2.25rem', fontWeight: 700, color: '#434341' }}>Booking Submitted!</h2>
+                  
+                  <div style={{ backgroundColor: '#476548', color: 'white', borderRadius: '0.5rem', padding: '1.5rem', maxWidth: '28rem', margin: '0 auto' }}>
+                    <p style={{ fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.5rem' }}>YOUR BOOKING ID</p>
+                    <p style={{ fontFamily: 'Bebas Neue', fontSize: '2.5rem', letterSpacing: '0.1em' }}>{bookingId}</p>
+                    <p style={{ fontSize: '0.875rem', opacity: 0.9 }}>Save this ID for payment</p>
+                  </div>
+                  
+                  <div style={{ backgroundColor: '#F8F3E3', border: '2px solid #476548', borderRadius: '0.5rem', padding: '1.5rem', textAlign: 'left', maxWidth: '28rem', margin: '0 auto' }}>
+                    <h3 style={{ fontFamily: 'Playfair Display', fontWeight: 700, fontSize: '1.125rem', marginBottom: '0.75rem', color: '#434341' }}>Summary</h3>
+                    <p style={{ fontSize: '0.875rem', color: '#434341', margin: '0.5rem 0' }}><strong>ID:</strong> {bookingId}</p>
+                    <p style={{ fontSize: '0.875rem', color: '#434341', margin: '0.5rem 0' }}><strong>Venue:</strong> {venues.find(v => v.id === formData.venue)?.name}</p>
+                    <p style={{ fontSize: '0.875rem', color: '#434341', margin: '0.5rem 0' }}><strong>Date:</strong> {formData.date}</p>
+                    <p style={{ fontSize: '0.875rem', color: '#434341', margin: '0.5rem 0' }}><strong>Time:</strong> {formData.startTime} - {formData.endTime}</p>
+                  </div>
+
+                  <div style={{ backgroundColor: '#F8F3E3', border: '2px solid #476548', borderRadius: '0.5rem', padding: '1rem', maxWidth: '28rem', margin: '0 auto' }}>
+                    <p style={{ fontSize: '0.875rem', color: '#434341', marginBottom: '1rem', fontWeight: 600 }}>⚠️ IMPORTANT: Booking not complete until payment received.</p>
+                    <button onClick={redirectToZeffy} style={{ ...s.btn, width: '100%', backgroundColor: '#476548', color: 'white' }}>Proceed to Payment (Zeffy)</button>
+                  </div>
+
+                  <p style={{ fontSize: '0.75rem', color: '#434341' }}>Questions? Contact info@canalcreativeoh.com</p>
+                </div>
+              )}
+
+              {step < 4 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2rem', paddingTop: '1.5rem', borderTop: '2px solid #476548' }}>
+                  <button onClick={() => setStep(step - 1)} disabled={step === 1} style={{ ...s.btn, backgroundColor: '#434341', color: 'white', opacity: step === 1 ? 0.5 : 1 }}>Back</button>
+                  <button onClick={step === 3 ? handleSubmit : () => validateStep(step) && setStep(step + 1)} style={{ ...s.btn, backgroundColor: '#476548', color: 'white' }}>{step === 3 ? 'Submit' : 'Next'}</button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    ReactDOM.render(<VenueBookingSystem />, document.getElementById('root'));
+  </script>
+</body>
+</html>
