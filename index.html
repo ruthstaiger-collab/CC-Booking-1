@@ -39,7 +39,7 @@
       const [errors, setErrors] = useState({});
 
       // Google Apps Script Web App URL
-      const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby9QRuSiC6OQqCRjwbPomLh-TEb2PHebZeB-iMppiHCazE5_OPz58wAruR2hTli1FyPPg/exec';
+      const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby_gTulL_IggjPdcZPDxmOJ8XTw9ztdN5WbLe5-7h0WOfU-wqkZzDVvgah8HbXLknRvKQ/exec';
 
       const generateBookingId = () => {
         const d = new Date();
@@ -89,7 +89,6 @@
         
         setLoading(true);
         const newBookingId = generateBookingId();
-        setBookingId(newBookingId);
         const v = venues.find(x => x.id === formData.venue);
         
         const data = {
@@ -114,16 +113,22 @@
         try {
           const response = await fetch(APPS_SCRIPT_URL, {
             method: 'POST',
-            mode: 'no-cors',
             headers: {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify(data)
           });
 
-          // Note: no-cors mode doesn't allow reading response
-          // Assume success and move to payment page
-          setStep(4);
+          const result = await response.json();
+
+          if (result.success) {
+            setBookingId(newBookingId);
+            setStep(4);
+          } else {
+            // Time slot already booked or other error
+            alert(result.message || 'This time slot is already booked. Please select a different time.');
+            setStep(1); // Go back to venue/date selection
+          }
           setLoading(false);
 
         } catch (err) {
